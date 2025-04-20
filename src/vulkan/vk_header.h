@@ -7,6 +7,15 @@
 
 #include <vulkan/vulkan.h>
 
+VkResult vk_verify_macro_result;
+
+#define VK_VERIFY(FUNC) vk_verify_macro_result = FUNC;\
+						if(vk_verify_macro_result != VK_SUCCESS)\
+						{\
+							printf("VK_VERIFY error (%i)\n", vk_verify_macro_result);\
+							PANIC();\
+						}\
+
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_BMP
 #include "../extern/stb_image.h"
@@ -16,3 +25,4 @@
 #include "vk_helpers.c"
 #include "vk_init.c"
 #include "vk_loop.c"
+

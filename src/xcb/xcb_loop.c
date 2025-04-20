@@ -18,18 +18,15 @@ void xcb_loop(struct xcb_context* xcb)
 					xcb_configure_notify_event_t* ev = (xcb_configure_notify_event_t*)e;
 					xcb->window_w = ev->width;
 					xcb->window_h = ev->height;
+
+					xcb->mouse_moved_yet = 0;
+					break;
 				}
             	case XCB_MOTION_NOTIFY:
                 {
                     // TODO - implement properly
 					xcb_motion_notify_event_t* ev = (xcb_motion_notify_event_t*)e;
-                    
-					if(xcb->mouse_just_warped) 
-					{
-    					xcb->mouse_just_warped = 0;
-    					break;
-					}
-                    
+
 					if(!xcb->mouse_moved_yet) 
 					{
     					xcb->mouse_moved_yet = 1;
@@ -39,6 +36,13 @@ void xcb_loop(struct xcb_context* xcb)
     					xcb->input.mouse_y = ev->event_y;
     					break;
 					}
+                    
+					if(xcb->mouse_just_warped) 
+					{
+    					xcb->mouse_just_warped = 0;
+    					break;
+					}
+                   
 
 					xcb->input.mouse_delta_x = ev->event_x - xcb->input.mouse_x;
 					xcb->input.mouse_delta_y = ev->event_y - xcb->input.mouse_y;
@@ -159,6 +163,8 @@ void xcb_loop(struct xcb_context* xcb)
     		xcb->memory_pool,
     		xcb->memory_pool_bytes,
     		dt,
+    		xcb->window_w,
+    		xcb->window_h,
     		&xcb->input,
     		&xcb->render_group);
 

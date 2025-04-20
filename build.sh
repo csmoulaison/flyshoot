@@ -2,17 +2,24 @@ BIN=bin
 
 # Shader compilation
 GLSLC=glslc
-SHADER_SRC=src/vulkan/shaders
+SHADER_SRC=src/vulkan/shaders/
 SHADER_OUT=$BIN/shaders
 
 printf "Compiling GLSL...\n"
 
-$GLSLC $SHADER_SRC/shader.vert -o $SHADER_OUT/vert.spv
+$GLSLC $SHADER_SRC/world.vert -o $SHADER_OUT/world_vert.spv
 if [ $? -ne 0 ]; then
 	exit 1
 fi
-
-$GLSLC $SHADER_SRC/shader.frag -o $SHADER_OUT/frag.spv
+$GLSLC $SHADER_SRC/world.frag -o $SHADER_OUT/world_frag.spv
+if [ $? -ne 0 ]; then
+	exit 1
+fi
+$GLSLC $SHADER_SRC/reticle.vert -o $SHADER_OUT/reticle_vert.spv
+if [ $? -ne 0 ]; then
+	exit 1
+fi
+$GLSLC $SHADER_SRC/reticle.frag -o $SHADER_OUT/reticle_frag.spv
 if [ $? -ne 0 ]; then
 	exit 1
 fi
@@ -24,7 +31,6 @@ SRC=src/xcb/xcb_main.c
 INCLUDE=src/
 LIBS="-lX11 -lX11-xcb -lm -lxcb -lxcb-xfixes -lxcb-keysyms -lvulkan"
 FLAGS="-g -O3 -Wall"
-
 
 printf "Compiling executable...\n"
 

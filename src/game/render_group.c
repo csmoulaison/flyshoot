@@ -9,5 +9,7 @@ struct render_group
 	struct v3 camera_position;
 	struct v3 camera_target;
 
+	struct v2 reticle_offset;
+
 	struct m4 cube_transforms[CUBES_LEN];
 };

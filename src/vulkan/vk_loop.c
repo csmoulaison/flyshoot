@@ -35,16 +35,18 @@ void vk_loop(struct vk_context* vk, struct render_group* render_group)
 	// Translate game memory to uniform buffer object memory.
 	struct vk_host_memory mem = {};
 	{
-		mem.global.clear_color = render_group->clear_color;
-		mem.global.max_draw_distance_z = render_group->max_draw_distance_z;
+		mem.global.world.clear_color = render_group->clear_color;
+		mem.global.world.max_draw_distance_z = render_group->max_draw_distance_z;
 
 		glm_lookat(
     		render_group->camera_position.data, 
     		render_group->camera_target.data,
     		(vec3){0, 1, 0}, 
-    		mem.global.view);
-		glm_perspective(radians(75), (float)vk->swap_extent.width / (float)vk->swap_extent.height, .1, 100, mem.global.projection);
-		mem.global.projection[1][1] *= -1;
+    		mem.global.world.view);
+		glm_perspective(radians(75), (float)vk->swap_extent.width / (float)vk->swap_extent.height, .1, 100, mem.global.world.projection);
+		mem.global.world.projection[1][1] *= -1;
+
+		mem.global.reticle_pos = render_group->reticle_offset;
 
 		for(uint32_t i = 0; i < CUBES_LEN; i++)
 		{
@@ -136,8 +138,8 @@ void vk_loop(struct vk_context* vk, struct render_group* render_group)
 		render_info.layerCount           = 1;
 		render_info.colorAttachmentCount = 1;
 		render_info.pColorAttachments    = &color_attachment;
-		render_info.pDepthAttachment     = &depth_attachment; // TODO - depth buffering
-		render_info.pStencilAttachment   = 0; // TODO - depth buffering
+		render_info.pDepthAttachment     = &depth_attachment;
+		render_info.pStencilAttachment   = 0;
 
 		vkCmdBeginRendering(vk->command_buffer, &render_info);
 		{
@@ -157,42 +159,76 @@ void vk_loop(struct vk_context* vk, struct render_group* render_group)
 			scissor.extent = vk->swap_extent;
 			vkCmdSetScissor(vk->command_buffer, 0, 1, &scissor);
 
-			vkCmdBindPipeline(
-				vk->command_buffer, 
-				VK_PIPELINE_BIND_POINT_GRAPHICS, 
-				vk->pipeline);
+			{
+				vkCmdBindPipeline(
+					vk->command_buffer, 
+					VK_PIPELINE_BIND_POINT_GRAPHICS, 
+					vk->pipeline_resources_world.pipeline);
 
-			VkDeviceSize offs[] = {vk->vertex_buffer_offset};
-			vkCmdBindVertexBuffers(
-				vk->command_buffer, 
-				0, 
-				1, 
-				&vk->device_local_buffer,
-				offs);
-			vkCmdBindIndexBuffer(
-				vk->command_buffer, 
-				vk->device_local_buffer, 
-				vk->index_buffer_offset, 
-				VK_INDEX_TYPE_UINT16);
+				VkDeviceSize offsets[] = {vk->mesh_data_cube.buffer_offset_vertex};
+				vkCmdBindVertexBuffers(
+					vk->command_buffer, 
+					0, 
+					1, 
+					&vk->device_local_buffer,
+					offsets);
+				vkCmdBindIndexBuffer(
+					vk->command_buffer, 
+					vk->device_local_buffer, 
+					vk->mesh_data_cube.buffer_offset_index, 
+					VK_INDEX_TYPE_UINT16);
 
-			for(uint16_t i = 0; i < MAX_INSTANCES; i++) {
-				uint32_t dyn_off = i * sizeof(mat4);
+				for(uint16_t i = 0; i < MAX_INSTANCES; i++) {
+					uint32_t dyn_off = i * sizeof(mat4);
+					vkCmdBindDescriptorSets(
+						vk->command_buffer, 
+						VK_PIPELINE_BIND_POINT_GRAPHICS, 
+						vk->pipeline_resources_world.pipeline_layout, 
+						0, 
+						1, 
+						&vk->pipeline_resources_world.descriptor_set,
+						1,
+						&dyn_off);
+
+					vkCmdDrawIndexed(vk->command_buffer, vk->mesh_data_cube.indices_len, 1, 0, 0, 0);
+				}
+			}
+
+			{
+				vkCmdBindPipeline(
+					vk->command_buffer, 
+					VK_PIPELINE_BIND_POINT_GRAPHICS, 
+					vk->pipeline_resources_reticle.pipeline);
+
+				VkDeviceSize offset = {vk->mesh_data_reticle.buffer_offset_vertex};
+				vkCmdBindVertexBuffers(
+					vk->command_buffer, 
+					0, 
+					1, 
+					&vk->device_local_buffer,
+					&offset);
+				vkCmdBindIndexBuffer(
+					vk->command_buffer, 
+					vk->device_local_buffer, 
+					vk->mesh_data_reticle.buffer_offset_index, 
+					VK_INDEX_TYPE_UINT16);
+
 				vkCmdBindDescriptorSets(
 					vk->command_buffer, 
 					VK_PIPELINE_BIND_POINT_GRAPHICS, 
-					vk->pipeline_layout, 
+					vk->pipeline_resources_reticle.pipeline_layout, 
 					0, 
 					1, 
-					&vk->descriptor_set,
-					1,
-					&dyn_off);
+					&vk->pipeline_resources_reticle.descriptor_set,
+					0,
+					0);
 
-				vkCmdDrawIndexed(vk->command_buffer, INDICES_LEN, 1, 0, 0, 0);
+				vkCmdDrawIndexed(vk->command_buffer, vk->mesh_data_reticle.indices_len, 1, 0, 0, 0);
 			}
 		}
 		vkCmdEndRendering(vk->command_buffer);
 
-	// TODO - We'll want one for the depth image as well.
+		// TODO - We'll want one for the depth image as well.
 		insert_image_memory_barrier(
 			vk->command_buffer, 
 			vk->swap_images[image_idx], 

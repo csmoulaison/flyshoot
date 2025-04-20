@@ -1,17 +1,9 @@
 #define MAX_NETWORK_LINES 4
-#define CUBES_MOVE_SPEED 30
-#define CAM_LOOK_SPEED 4
-#define CAM_LOOK_LERP_SPEED 4
+#define CUBES_MOVE_SPEED 3
+#define CAM_LOOK_SPEED 12
+#define CAM_LOOK_LERP_SPEED 1
 
 // TODO - majorus
-// * UI layer for reticle - reticle positioned based on a mapping between the
-//   delta of the target pitch/yaw and the actual pitch/yaw
-//   > Create vertex shader for reticle. Just bake the shape right in there.
-//   > Allocate and use new vertex buffer, descriptor sets, same UBO, just for
-//     the v2 position.
-//   > Create pipeline to attach shaders and shit to.
-//   > Two calls to vkCmdBindPipeline, two calls to vkCmdBindVertex/Index buffers.
-//   
 // * Dynamic up vector. Always up based on current forward? Think about what
 //   that means.
 // * Raycast from camera to hitting cube.
@@ -31,10 +23,12 @@
 //   finish. That way we need a REAL level editor???
 
 void game_loop(
-    void*  mem,
-    size_t mem_bytes,
-    float  dt,
-    struct input_state* input,
+    void*                mem,
+    size_t               mem_bytes,
+    float                dt,
+    uint32_t             window_w,
+    uint32_t             window_h,
+    struct input_state*  input,
     struct render_group* render_group)
 {
     struct game_memory* game = (struct game_memory*)mem;
@@ -89,6 +83,13 @@ void game_loop(
 
 	render_group->camera_position = game->camera_position;
 	render_group->camera_target = v3_add(game->camera_position, game->camera_forward);
+
+#define CAMERA_RETICLE_OFFSET_MOD 0.035
+	render_group->reticle_offset = (struct v2)
+	{{{
+		(game->camera_yaw   - game->camera_yaw_target)   / ((float)window_w * -CAMERA_RETICLE_OFFSET_MOD),
+		(game->camera_pitch - game->camera_pitch_target) / ((float)window_h *  CAMERA_RETICLE_OFFSET_MOD)
+	}}};
 
 	memcpy(render_group->cube_transforms, cube_transforms, sizeof(struct m4) * CUBES_LEN);
 }
